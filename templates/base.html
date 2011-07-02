@@ -9,18 +9,19 @@
     {% block styles %}
     <style type="text/css">
         html, body {
-            background-color: #000;
-            font-family: helvetica, arial, sans-serif;
-            color: #ccc;
-            margin:24px 0px;
+            background-color: #24272A;
+            margin: 12px 0px;
             padding: 0;
-            font-size: 12pt;
+            color: #ccc;
+            font-family: helvetica, arial, sans-serif;
+            font-size: 16pt;
+            font-weight: bold;
             text-align: center;
         }
         
         hr {
             height: 0;
-            border: 1px dashed #333;
+            border: 1px solid #ccc;
         }
         
         ul {
@@ -33,7 +34,7 @@
         }
         
         a {
-            color: #55c;
+            color: #22a;
             text-decoration: none;
         }
         a:hover, a:active {
@@ -42,7 +43,9 @@
         
         header {
             margin: 0;
-            color: #fff;
+            padding: 0;
+            color: #D06300;
+            font-weight: bold;
         }
         
         footer {
@@ -55,29 +58,37 @@
             left: 0;
             right: 0;
         }
-            
+        
         #content {
+            background-color: #eee;
+            color: #333;
             width: 500px;
             margin: 0 auto;
             text-align: left;
             padding: 0 24px;
-            border: 1px dashed #333;
+            border: 2px solid #111;
+        }
+        
+        .message {
+            font-size: 12px;
+            font-weight: bold;
+            color: #111;
         }
     </style>
     {% endblock %}
     {% block favicon %}{% endblock %}
-    {% block scripts %}
-    {% endblock %}
+    {% block scripts %}{% endblock %}
     {% endblock %}
 </head>
 <body>
-    <header>
-        {% block content %}{% endblock %}
-    </section>
-    <footer>
-        {% block footer %}
-        Python backend by Joe Esposito.
-        {% endblock %}
+    <section>
+        <article id="content">
+            {% block content %}{% endblock %}
+            
+            <footer>
+                {% block footer %}Python backend by Joe Esposito.{% endblock %}
+            </section>
+        </article>
     </section>
 </body>
 </html>

@@ -3,20 +3,19 @@
 {% block title %}Home{% endblock %}
 
 {% block content %}
-<article>
-    <section id="content">
-        <header>
-            <h2>Impact Games</h2>
-        </header>
-        <ul>
-            <li> <a href="/new">New Game</a> </li>
-        </ul>
-        <hr />
-        <ul>
-            {% for game in games %}
-            <li> <a href="/games/{{ game }}/edit" target="_blank">{{ game|title|replace('_', ' ')|trim }}</a> (<a href="/games/{{ game }}" target="_blank">Play</a>) </li>
-            {% endfor %}
-        </ul>
-    </section>
-</article>
+    <header>
+        <h2>Impact Games</h2>
+    </header>
+    
+    <ul>
+        {% for game in games %}
+        <li> <a href="/games/{{ game }}/edit" target="_blank">{{ game|title|replace('_', ' ')|trim }}</a> (<a href="/games/{{ game }}" target="_blank">Play</a>) </li>
+        {% endfor %}
+    </ul>
+    {% if games %}
+    <hr />
+    {% endif %}
+    <ul>
+        <li> <a href="/new">New Game</a> </li>
+    </ul>
 {% endblock %}
