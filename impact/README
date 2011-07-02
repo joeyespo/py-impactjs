@@ -1,0 +1,9 @@
+Replace this directory with the actual Impact framework files.
+
+For example, this directory should contain the following:
+- lib
+- media
+- tools
+- index.html
+- weltmeister.html
+- README -- this file

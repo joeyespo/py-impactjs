@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% block metahead %}
+    <meta charset="utf-8" />
+    {% endblock %}
+    {% block head %}
+    <title>{%block fulltitle%}{% block title %}{% endblock %} - Impact{% endblock %}</title>
+    {% block styles %}
+    <link rel="stylesheet" href="{{ static('style.css') }}" />
+    {% endblock %}
+    {% block favicon %}
+    <link rel="shortcut icon" href="{{ static('favicon.png') }}">
+    {% endblock %}
+    {% block scripts %}
+    {% endblock %}
+    {% endblock %}
+</head>
+<body>
+    <header>
+        {% block content %}{% endblock %}
+    </section>
+    <footer>
+        {% block footer %}
+        Python backend by Joe Esposito.
+        {% endblock %}
+    </section>
+</body>
+</html>
