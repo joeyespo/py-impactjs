@@ -13,7 +13,9 @@
         </ul>
         <hr />
         <ul>
-            <em><a href="/impact/weltmeister.html" target="_blank">Default</a> (<a href="/impact/index.html" target="_blank">Play</a>)</em>
+            {% for game in games %}
+            <li> <a href="/games/{{ game }}/edit" target="_blank">{{ game|title|replace('_', ' ')|trim }}</a> (<a href="/games/{{ game }}" target="_blank">Play</a>) </li>
+            {% endfor %}
         </ul>
     </section>
 </article>

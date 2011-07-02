@@ -7,11 +7,65 @@
     {% block head %}
     <title>{%block fulltitle%}{% block title %}{% endblock %} - Impact{% endblock %}</title>
     {% block styles %}
-    <link rel="stylesheet" href="{{ static('style.css') }}" />
+    <style type="text/css">
+        html, body {
+            background-color: #000;
+            font-family: helvetica, arial, sans-serif;
+            color: #ccc;
+            margin:24px 0px;
+            padding: 0;
+            font-size: 12pt;
+            text-align: center;
+        }
+        
+        hr {
+            height: 0;
+            border: 1px dashed #333;
+        }
+        
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        
+        li {
+            margin: 8px 0;
+        }
+        
+        a {
+            color: #55c;
+            text-decoration: none;
+        }
+        a:hover, a:active {
+            text-decoration: underline;
+        }
+        
+        header {
+            margin: 0;
+            color: #fff;
+        }
+        
+        footer {
+            position: absolute;
+            text-align: center;
+            font-size: 8pt;
+            color: #333;
+            top: auto;
+            bottom: 12px;
+            left: 0;
+            right: 0;
+        }
+            
+        #content {
+            width: 500px;
+            margin: 0 auto;
+            text-align: left;
+            padding: 0 24px;
+            border: 1px dashed #333;
+        }
+    </style>
     {% endblock %}
-    {% block favicon %}
-    <link rel="shortcut icon" href="{{ static('favicon.png') }}">
-    {% endblock %}
+    {% block favicon %}{% endblock %}
     {% block scripts %}
     {% endblock %}
     {% endblock %}
