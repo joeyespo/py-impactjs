@@ -44,7 +44,7 @@ def game_info(game):
     return '<em>TODO: Show game info for: %s</em>' % game
 
 @app.route('/games/<game>/play/')
-@app.route('/games/<game>/play/<path:data_path>')
+@app.route('/games/<game>/play/<path:data_path>', methods=['GET', 'POST'])
 def game_player(game, data_path = None):
     # Reroute to Impact/game or abort if trying to access a file at Impact root
     if data_path and not os.path.dirname(data_path):
@@ -52,7 +52,7 @@ def game_player(game, data_path = None):
     return handle_impactjs(data_path or 'index.html', game)
 
 @app.route('/games/<game>/edit/')
-@app.route('/games/<game>/edit/<path:data_path>')
+@app.route('/games/<game>/edit/<path:data_path>', methods=['GET', 'POST'])
 def game_editor(game, data_path = None):
     # Reroute to Impact/game or abort if trying to access a file at Impact root
     if data_path and not os.path.dirname(data_path):
@@ -85,23 +85,33 @@ def handle_impactjs(impact_path = 'index.html', game = None):
                 files += [filename[len(IMPACT_DIR):] for filename in glob.glob(os.path.join(path, ext))]
             return json.dumps({'dirs': dirs, 'files': files, 'parent': path == IMPACT_DIR})
         elif method == 'save.php' and request.method == 'POST':
-            # TODO: fully implement
-            path = request.args.get('path')
-            data = request.args.get('data')
+            path = request.form.get('path', '').replace('..', '').replace('\\', '/')
+            data = request.form.get('data')
             if not path or not data:
-                return {'error': '1', 'msg': 'No Data or Path specified'}
+                print '*** Save error: No data or path specified.'
+                return json.dumps({'error': '1', 'msg': 'No Data or Path specified'})
             elif not path.endswith('.js'):
-                return {'error': '3', 'msg': 'File must have a .js suffix'}
+                print '*** Save error: File must have a .js extension.'
+                return json.dumps({'error': '3', 'msg': 'File must have a .js suffix'})
+            print 'Saving:', path
+            print game
+            # TODO: How to handle the path?
+            # Reroute the path to the current game's level directory
+            if game and path.startswith(IMPACT_GAME_PATH):
+                path = os.path.join(GAMES_DIR, game, path[len(IMPACT_GAME_PATH):])
             path = os.path.normpath(os.path.join(IMPACT_DIR, path)).replace('..', '')
             # Write to file
             try:
                 with open(path, 'w') as f:
                     f.write(data)
-                return {'error': 0}
+                return json.dumps({'error': 0})
             except:
-                return {'error': '2', 'msg': "Couldn't write to file: " + path}
+                print '*** Save error: Could not write to file.'
+                return json.dumps({'error': '2', 'msg': "Couldn't write to file: " + path})
         else:
             abort(404)
+    
+    # TODO: Reroute game's media files
     
     # Get the local path and send back the specified file
     if game and impact_path.startswith(IMPACT_GAME_PATH):
