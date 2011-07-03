@@ -6,16 +6,18 @@
     <header>
         <h2>Impact Games</h2>
     </header>
-    
     <ul>
         {% for game in games %}
-        <li> <a href="/games/{{ game }}/edit" target="_blank">{{ game|title|replace('_', ' ')|trim }}</a> (<a href="/games/{{ game }}" target="_blank">Play</a>) </li>
+        <li>
+            <a href="/games/{{ game }}">{{ game|title|replace('_', ' ')|trim }}</a>
+            <span class="actions">(<a href="/games/{{ game }}/edit" target="_blank">Edit</a> | <a href="/games/{{ game }}/play" target="_blank">Play</a>)
+        </li>
         {% endfor %}
     </ul>
     {% if games %}
     <hr />
     {% endif %}
     <ul>
-        <li> <a href="/new">New Game</a> </li>
+        <li> <a href="/newgame">New Game</a> </li>
     </ul>
 {% endblock %}

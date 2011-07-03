@@ -16,7 +16,8 @@ SUPPORTED_EXTENSIONS = {'images': ['*.png', '*.gif', '*.jpg', '*.jpeg'], 'script
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 GAMES_DIR = os.path.normpath(os.path.join(ROOT_DIR, 'games'))
 IMPACT_DIR = os.path.normpath(os.path.join(ROOT_DIR, 'impact')) + os.sep
-API_PATH = 'lib/weltmeister/api/'
+IMPACT_GAME_PATH = 'lib/game/'
+IMPACT_API_PATH = 'lib/weltmeister/api/'
 
 # Flask application
 app = Flask(__name__)
@@ -24,37 +25,50 @@ app = Flask(__name__)
 # Views
 @app.route('/')
 def index():
+    # Show a list of games
     games = [game for game in os.listdir(GAMES_DIR) if os.path.isdir(os.path.join(GAMES_DIR, game))]
     return render_template('index.html', games = games)
 
-@app.route('/new/')
-def new_game(game_name = None):
+@app.route('/newgame/', methods = ['GET', 'POST'])
+def new_game():
+    # Allow the user to create a new game
     return '<em>TODO: Create a new game.</em>'
 
 @app.route('/games/')
 def games_index(game_path = None):
+    # Redirect to the home page
     return redirect(url_for('index'))
 
-@app.route('/games/<path:game_path>')
-def play_game(game_path = None):
-    game, action = os.path.split(os.path.normpath(game_path))
-    if os.path.split(game)[0] or (action and action != 'edit'):
+@app.route('/games/<game>/')
+def game_info(game):
+    return '<em>TODO: Show game info for: %s</em>' % game
+
+@app.route('/games/<game>/play/')
+@app.route('/games/<game>/play/<path:data_path>')
+def game_player(game, data_path = None):
+    # Reroute to Impact/game or abort if trying to access a file at Impact root
+    if data_path and not os.path.dirname(data_path):
         abort(404)
-    return handle_impactjs('weltmeister.html' if action else 'index.html', game)
+    return handle_impactjs(data_path or 'index.html', game)
+
+@app.route('/games/<game>/edit/')
+@app.route('/games/<game>/edit/<path:data_path>')
+def game_editor(game, data_path = None):
+    # Reroute to Impact/game or abort if trying to access a file at Impact root
+    if data_path and not os.path.dirname(data_path):
+        abort(404)
+    return handle_impactjs(data_path or 'weltmeister.html', game)
 
 @app.route('/impact/')
 @app.route('/impact/<path:impact_path>', methods=['GET', 'POST'])
 def handle_impactjs(impact_path = 'index.html', game = None):
-    # Method to reroute the game URLs
-    def reroute(path):
-        if game:
-            # TODO: implement
-            pass
-        return path
+    # Abort if there's no file to be retrieved
+    if not os.path.basename(impact_path):
+        abort(404)
     
     # Override the API
-    if impact_path.startswith(API_PATH):
-        method = impact_path[len(API_PATH):]
+    if impact_path.startswith(IMPACT_API_PATH):
+        method = impact_path[len(IMPACT_API_PATH):]
         if method == 'glob.php':
             # TODO: Handle arrays of 'glob' URL arguments
             path = os.path.normpath(os.path.join(IMPACT_DIR, request.args.get('glob[]', ''))).replace('..', '')
@@ -71,7 +85,7 @@ def handle_impactjs(impact_path = 'index.html', game = None):
                 files += [filename[len(IMPACT_DIR):] for filename in glob.glob(os.path.join(path, ext))]
             return json.dumps({'dirs': dirs, 'files': files, 'parent': path == IMPACT_DIR})
         elif method == 'save.php' and request.method == 'POST':
-            # TODO: implement
+            # TODO: fully implement
             path = request.args.get('path')
             data = request.args.get('data')
             if not path or not data:
@@ -90,10 +104,14 @@ def handle_impactjs(impact_path = 'index.html', game = None):
             abort(404)
     
     # Get the local path and send back the specified file
-    path = os.path.normpath(os.path.join(IMPACT_DIR, impact_path))
-    print
-    print ' ', path
+    if game and impact_path.startswith(IMPACT_GAME_PATH):
+        # Get the local game file path
+        path = os.path.join(GAMES_DIR, game, impact_path[len(IMPACT_GAME_PATH):])
+    else:
+        # Get the local impact file path
+        path = os.path.normpath(os.path.join(IMPACT_DIR, impact_path))
     
+    # Return the local file
     return send_file(path)
 
 @app.errorhandler(404)
@@ -102,4 +120,4 @@ def page_not_found(error):
 
 # Run dev server
 if __name__ == '__main__':
-    app.run('localhost', port=80, debug=True)
+    app.run('localhost', port = 80, debug = True)
