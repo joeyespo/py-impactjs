@@ -17,8 +17,8 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 GAMES_DIR = os.path.normpath(os.path.join(ROOT_DIR, 'games'))
 IMPACT_DIR = os.path.normpath(os.path.join(ROOT_DIR, 'impact')) + os.sep
 IMPACT_MEDIA_PATH = 'media/'
-IMPACT_GAME_PATH = 'lib/game/'
-IMPACT_API_PATH = 'lib/weltmeister/api/'
+IMPACT_GAME_URL = 'lib/game/'
+IMPACT_API_URL = 'lib/weltmeister/api/'
 
 # Flask application
 app = Flask(__name__)
@@ -61,30 +61,47 @@ def game_editor(game, data_path = None):
     return handle_impactjs(data_path or 'weltmeister.html', game)
 
 @app.route('/impact/')
-@app.route('/impact/<path:impact_path>', methods=['GET', 'POST'])
-def handle_impactjs(impact_path = 'index.html', game = None):
+@app.route('/impact/<path:impact_url>', methods=['GET', 'POST'])
+def handle_impactjs(impact_url = 'index.html', game = None):
     # Abort if there's no file to be retrieved
-    if not os.path.basename(impact_path):
+    if not os.path.basename(impact_url):
         abort(404)
     
     # Override the API
-    if impact_path.startswith(IMPACT_API_PATH):
-        method = impact_path[len(IMPACT_API_PATH):]
+    if impact_url.startswith(IMPACT_API_URL):
+        method = impact_url[len(IMPACT_API_URL):]
+        def norm_url(url):
+            if url.startswith('//'):
+                abort(404)
+            return url[1:] if url.startswith('/') else url
+        def reroute_url(url):
+            return url[len(IMPACT_GAME_URL):] if game and url.startswith(IMPACT_GAME_URL) else url
+        def get_path(url, rerouted = True):
+            return os.path.normpath(os.path.join(GAMES_DIR if game and rerouted else IMPACT_DIR, url)).replace('..', '')
+        current_game_dir = os.path.join(GAMES_DIR, game) if game else IMPACT_DIR
         if method == 'glob.php':
             # TODO: Handle arrays of 'glob' URL arguments
-            path = os.path.normpath(os.path.join(IMPACT_DIR, request.args.get('glob[]', ''))).replace('..', '')
+            pattern = reroute_url(norm_url(request.args.get('glob[]', '')))
+            path = get_path(pattern)
+            print; print 'glob(%s) ->' % repr(str(pattern))
             # TODO: Really need to join with 'lib' here?
             files = [f[len(os.path.join(IMPACT_DIR, 'lib') + os.sep):] for f in glob.glob(path)]
+            print '  ' + '\n  '.join(files) if len(files) > 0 else '  None'
             return json.dumps(files)
         elif method == 'browse.php':
-            path = os.path.normpath(os.path.join(IMPACT_DIR, request.args.get('dir', ''))).replace('..', '')
-            exts = SUPPORTED_EXTENSIONS.get(request.args.get('type')) or ['*.*']
+            directory = norm_url(request.args.get('dir', ''))
+            types = request.args.get('type')
+            print; print 'browse(%s, %s) ->' % (repr(str(directory)), repr(str(types)))
+            parent = os.path.dirname(directory) if directory else False
+            path = os.path.normpath(os.path.join(current_game_dir, directory)).replace('..', '')
+            exts = SUPPORTED_EXTENSIONS.get(types) or ['*.*']
             # Get the directories and files of the provided path, removing the base of the path (which leaves only the relative URL)
-            dirs = [dirname[len(IMPACT_DIR):] for dirname in os.listdir(path) if os.path.isdir(os.path.join(path, dirname))]
+            dirs = [(directory + '/' + dirname) for dirname in os.listdir(path) if os.path.isdir(os.path.join(path, dirname))]
             files = []
             for ext in exts:
-                files += [filename[len(IMPACT_DIR):] for filename in glob.glob(os.path.join(path, ext))]
-            return json.dumps({'dirs': dirs, 'files': files, 'parent': path == IMPACT_DIR})
+                files += [filename[len(current_game_dir):] for filename in glob.glob(os.path.join(path, ext))]
+            print '  ' + '\n  '.join(files) if len(files) > 0 else '  None'
+            return json.dumps({'dirs': dirs, 'files': files, 'parent': parent})
         elif method == 'save.php' and request.method == 'POST':
             path = request.form.get('path', '').replace('..', '').replace('\\', '/')
             data = request.form.get('data')
@@ -97,9 +114,9 @@ def handle_impactjs(impact_path = 'index.html', game = None):
             print 'Saving:', path
             print game
             # Reroute the path to the current game's level directory
-            if game and path.startswith(IMPACT_GAME_PATH):
+            if game and path.startswith(IMPACT_GAME_URL):
                 # TODO: How to handle the path?
-                path = os.path.join(GAMES_DIR, game, path[len(IMPACT_GAME_PATH):])
+                path = os.path.join(GAMES_DIR, game, path[len(IMPACT_GAME_URL):])
             path = os.path.normpath(os.path.join(IMPACT_DIR, path)).replace('..', '')
             # Write to file
             try:
@@ -112,20 +129,13 @@ def handle_impactjs(impact_path = 'index.html', game = None):
         else:
             abort(404)
     
-    # Reroute path, if current game exists
-    local_path = None
-    if game:
-        if impact_path.startswith(IMPACT_GAME_PATH):
-            local_path = os.path.normpath(os.path.join(GAMES_DIR, game, impact_path[len(IMPACT_GAME_PATH):]))
-        elif impact_path.startswith(IMPACT_MEDIA_PATH):
-            local_path = os.path.normpath(os.path.join(GAMES_DIR, game, impact_path))
-            # Do not reroute to the current game's media file if it doesn't exist
-            if not os.path.exists(local_path):
-                local_path = None
-    
-    # Get the local impact path (if there was no rerouting)
-    if not local_path:
-        local_path = os.path.normpath(os.path.join(IMPACT_DIR, impact_path))
+    # Reroute path, if current game exists, and use the local impact path otherwise
+    if game and impact_url.startswith(IMPACT_GAME_URL):
+        local_path = os.path.normpath(os.path.join(GAMES_DIR, game, impact_url[len(IMPACT_GAME_URL):]))
+    elif game and impact_url.startswith(IMPACT_MEDIA_PATH):
+        local_path = os.path.normpath(os.path.join(GAMES_DIR, game, impact_url))
+    else:
+        local_path = os.path.normpath(os.path.join(IMPACT_DIR, impact_url))
     
     # Abort if no impact file exists
     if not os.path.exists(local_path):
