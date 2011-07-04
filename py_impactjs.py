@@ -16,6 +16,7 @@ SUPPORTED_EXTENSIONS = {'images': ['*.png', '*.gif', '*.jpg', '*.jpeg'], 'script
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 GAMES_DIR = os.path.normpath(os.path.join(ROOT_DIR, 'games'))
 IMPACT_DIR = os.path.normpath(os.path.join(ROOT_DIR, 'impact')) + os.sep
+IMPACT_MEDIA_PATH = 'media/'
 IMPACT_GAME_PATH = 'lib/game/'
 IMPACT_API_PATH = 'lib/weltmeister/api/'
 
@@ -95,9 +96,9 @@ def handle_impactjs(impact_path = 'index.html', game = None):
                 return json.dumps({'error': '3', 'msg': 'File must have a .js suffix'})
             print 'Saving:', path
             print game
-            # TODO: How to handle the path?
             # Reroute the path to the current game's level directory
             if game and path.startswith(IMPACT_GAME_PATH):
+                # TODO: How to handle the path?
                 path = os.path.join(GAMES_DIR, game, path[len(IMPACT_GAME_PATH):])
             path = os.path.normpath(os.path.join(IMPACT_DIR, path)).replace('..', '')
             # Write to file
@@ -111,18 +112,27 @@ def handle_impactjs(impact_path = 'index.html', game = None):
         else:
             abort(404)
     
-    # TODO: Reroute game's media files
+    # Reroute path, if current game exists
+    local_path = None
+    if game:
+        if impact_path.startswith(IMPACT_GAME_PATH):
+            local_path = os.path.normpath(os.path.join(GAMES_DIR, game, impact_path[len(IMPACT_GAME_PATH):]))
+        elif impact_path.startswith(IMPACT_MEDIA_PATH):
+            local_path = os.path.normpath(os.path.join(GAMES_DIR, game, impact_path))
+            # Do not reroute to the current game's media file if it doesn't exist
+            if not os.path.exists(local_path):
+                local_path = None
     
-    # Get the local path and send back the specified file
-    if game and impact_path.startswith(IMPACT_GAME_PATH):
-        # Get the local game file path
-        path = os.path.join(GAMES_DIR, game, impact_path[len(IMPACT_GAME_PATH):])
-    else:
-        # Get the local impact file path
-        path = os.path.normpath(os.path.join(IMPACT_DIR, impact_path))
+    # Get the local impact path (if there was no rerouting)
+    if not local_path:
+        local_path = os.path.normpath(os.path.join(IMPACT_DIR, impact_path))
+    
+    # Abort if no impact file exists
+    if not os.path.exists(local_path):
+        abort(404)
     
     # Return the local file
-    return send_file(path)
+    return send_file(local_path)
 
 @app.errorhandler(404)
 def page_not_found(error):
