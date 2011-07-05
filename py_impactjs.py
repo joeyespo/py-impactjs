@@ -26,13 +26,11 @@ app = Flask(__name__)
 # Views
 @app.route('/')
 def index():
-    # Show a list of games
     games = [game for game in os.listdir(GAMES_DIR) if os.path.isdir(os.path.join(GAMES_DIR, game))]
     return render_template('index.html', games = games)
 
 @app.route('/games/')
-def games_index(game_path = None):
-    # Redirect to the home page
+def games_index():
     return redirect(url_for('index'))
 
 @app.route('/games/<game>/overview.html')
@@ -40,115 +38,78 @@ def game_overview(game):
     return '<em>TODO: Show game info for: %s</em>' % game
 
 @app.route('/games/<game>/')
-@app.route('/games/<game>/index.html')
-def play_game(game):
-    local_path = os.path.join(IMPACT_DIR, 'index.html')
-    return send_file(local_path)
-
-@app.route('/games/<game>/weltmeister.html', methods=['GET', 'POST'])
-def edit_game(game):
-    local_path = os.path.join(IMPACT_DIR, 'weltmeister.html')
-    return send_file(local_path)
+@app.route('/games/<game>/<page>')
+def play_game(game, page = 'index.html'):
+    return send_impact_file(page)
 
 @app.route('/games/<game>/tools/<path:subpath>')
 def get_tool(game, subpath):
-    local_path = os.path.join(IMPACT_DIR, 'tools', subpath)
-    return send_file(local_path)
+    return send_impact_file('tools', subpath)
 
 @app.route('/games/<game>/media/<path:subpath>')
 def get_media(game, subpath):
-    local_path = os.path.join(GAMES_DIR, game, 'media', subpath)
-    return send_file(local_path)
+    return send_game_file(game, 'media', subpath)
 
 @app.route('/games/<game>/lib/<path:subpath>')
 def get_impact_file(game, subpath):
-    local_path = os.path.join(IMPACT_DIR, 'lib', subpath)
-    return send_file(local_path)
+    return send_impact_file('lib', subpath)
 
 @app.route('/games/<game>/lib/game/<path:subpath>')
 def get_game_file(game, subpath):
-    local_path = os.path.join(GAMES_DIR, game, 'lib', 'game', subpath)
-    return send_file(local_path)
+    return send_game_file(game, 'lib', 'game', subpath)
 
-@app.route('/games/<game>/lib/weltmeister/api/<method>')
-def handle_impact_api(game, method):
-    game_dir = os.path.join(GAMES_DIR, game)
-    if method == 'glob.php':
-        # TODO: Handle arrays of 'glob' URL arguments
-        pattern = norm_path(request.args.get('glob[]', ''))
-        pattern_dir = os.path.dirname(pattern)
-        print; print 'glob(%s) ->' % repr(str(pattern))
-        local_path = os.path.join(game_dir, os.path.normpath(pattern))
-        files = [(pattern_dir + '/' + os.path.basename(f)) for f in glob.glob(local_path)]
-        print '  ' + '\n  '.join(files) if len(files) > 0 else '  None'
-        return json.dumps(files)
-    elif method == 'browse.php':
-        # TODO: Fix this
-        directory = norm_path(request.args.get('dir', ''))
-        types = request.args.get('type')
-        parent = os.path.dirname(directory) if directory else False
-        exts = SUPPORTED_EXTENSIONS.get(types) or ['*.*']
-        print; print 'browse(%s, %s) ->' % (repr(str(directory)), repr(str(types)))
-        local_path = os.path.join(game_dir, os.path.normpath(directory))
-        # Get the directories and files of the provided path, removing the base of the path (which leaves only the relative URL)
-        dirs = [(directory + '/' + dirname) for dirname in os.listdir(local_path) if os.path.isdir(os.path.join(local_path, dirname))]
-        files = []
-        for ext in exts:
-            files += [os.path.basename(filename) for filename in glob.glob(os.path.join(local_path, ext))]
-        items = dirs + files
-        print '  ' + '\n  '.join(items) if len(items) > 0 else '  None'
-        return json.dumps({'dirs': dirs, 'files': files, 'parent': parent})
-    elif method == 'save.php' and request.method == 'POST':
-        path = norm_path(request.form.get('path', ''))
-        data = request.form.get('data')
-        if not path or not data:
-            print '*** Save error: No data or path specified.'
-            return json.dumps({'error': '1', 'msg': 'No Data or Path specified'})
-        elif not path.endswith('.js'):
-            print '*** Save error: File must have a .js extension.'
-            return json.dumps({'error': '3', 'msg': 'File must have a .js suffix'})
-        print 'Saving:', path
-        print game
-        # Reroute the path to the current game's level directory
-        if game and path.startswith(IMPACT_GAME_URL):
-            # TODO: How to handle the path?
-            path = os.path.join(GAMES_DIR, game, path[len(IMPACT_GAME_URL):])
-        path = os.path.normpath(os.path.join(IMPACT_DIR, path)).replace('..', '')
-        # Write to file
-        try:
-            with open(path, 'w') as f:
-                f.write(data)
-            return json.dumps({'error': 0})
-        except:
-            print '*** Save error: Could not write to file.'
-            return json.dumps({'error': '2', 'msg': "Couldn't write to file: " + path})
-    abort(404)
+@app.route('/games/<game>/lib/weltmeister/api/glob.php')
+def glob_api_override(game):
+    # TODO: Handle arrays of 'glob' URL arguments
+    pattern = norm_path(request.args.get('glob[]', ''))
+    pattern_dir = os.path.dirname(pattern) + '/'
+    print; print 'glob(%s) ->' % repr(str(pattern))
+    local_path = os.path.join(GAMES_DIR, game, os.path.normpath(pattern))
+    files = [(pattern_dir + os.path.basename(f)) for f in glob.glob(local_path)]
+    print '  ' + '\n  '.join(files) if len(files) > 0 else '  None'
+    return json.dumps(files)
 
-# TODO: Clean up
-#@app.route('/games/<game>/<path:subpath>', methods=['GET', 'POST'])
-def game_handler(game, subpath = 'index.html'):
-    # Get the local game directory and verify it exists
-    game_dir = os.path.join(GAMES_DIR, game) if game else IMPACT_DIR
-    if not os.path.exists(game_dir):
-        abort(404)
-    
-    # Normalize the remote path and abort if it is invalid
-    subpath = norm_path(subpath)
-    if subpath is None:
-        abort(404)
-    
-    # TODO: Make the remote path routing happen as a separate layer, callable by the API
-    # Handle API
-    
-    # Get and send the specified local file
-    local_path = get_local_path(subpath, game)
-    if local_path is None:
-        abort(404)
-    return send_file(local_path)
+@app.route('/games/<game>/lib/weltmeister/api/browse.php')
+def browse_api_override(game):
+    directory = norm_path(request.args.get('dir', ''))
+    types = request.args.get('type')
+    parent = os.path.dirname(directory) if directory else False
+    exts = SUPPORTED_EXTENSIONS.get(types) or ['*.*']
+    print; print 'browse(%s, %s) ->' % (repr(str(directory)), repr(str(types)))
+    local_path = os.path.join(GAMES_DIR, game, os.path.normpath(directory))
+    directory += '/' if directory else ''
+    # Get the directories and files of the provided path, removing the base of the path (which leaves only the relative URL)
+    dirs = [(directory + dirname) for dirname in os.listdir(local_path) if os.path.isdir(os.path.join(local_path, dirname))]
+    files = []
+    for ext in exts:
+        files += [directory + os.path.basename(filename) for filename in glob.glob(os.path.join(local_path, ext))]
+    items = dirs + files
+    print '  ' + '\n  '.join(items) if len(items) > 0 else '  None'
+    return json.dumps({'dirs': dirs, 'files': files, 'parent': parent})
+
+@app.route('/games/<game>/lib/weltmeister/api/save.php', methods=['POST'])
+def save_api_override(game):
+    path = norm_path(request.form.get('path', ''))
+    data = request.form.get('data')
+    print; print 'saving(%s) ->' % path
+    if not path or not data:
+        print '*** Save error: No data or path specified.'
+        return json.dumps({'error': '1', 'msg': 'No Data or Path specified'})
+    elif not path.endswith('.js'):
+        print '*** Save error: File must have a .js extension.'
+        return json.dumps({'error': '3', 'msg': 'File must have a .js suffix'})
+    local_path = os.path.join(GAMES_DIR, game, path)
+    # Write to file
+    try:
+        with open(local_path, 'w') as f:
+            f.write(data)
+        return json.dumps({'error': 0})
+    except:
+        print '*** Save error: Could not write to file.'
+        return json.dumps({'error': '2', 'msg': "Couldn't write to file: " + path})
 
 @app.route('/newgame', methods = ['GET', 'POST'])
 def new_game():
-    # Allow the user to create a new game
     return '<em>TODO: Create a new game.</em>'
 
 @app.errorhandler(404)
@@ -180,6 +141,14 @@ def get_local_path(remote_path, current_game = None):
         return local_impact_path
     # Return None since no local file exists
     return None
+
+def send_impact_file(*pathparts):
+    """Sends a file by joining the specified path parts from the impact directory."""
+    return send_file(os.path.join(IMPACT_DIR, *pathparts))
+
+def send_game_file(game, *pathparts):
+    """Sends a file by joining the specified path parts from the current game directory."""
+    return send_file(os.path.join(GAMES_DIR, game, *pathparts))
 
 # Run dev server
 if __name__ == '__main__':
