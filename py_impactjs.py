@@ -30,80 +30,60 @@ def index():
     games = [game for game in os.listdir(GAMES_DIR) if os.path.isdir(os.path.join(GAMES_DIR, game))]
     return render_template('index.html', games = games)
 
-@app.route('/newgame/', methods = ['GET', 'POST'])
-def new_game():
-    # Allow the user to create a new game
-    return '<em>TODO: Create a new game.</em>'
-
 @app.route('/games/')
 def games_index(game_path = None):
     # Redirect to the home page
     return redirect(url_for('index'))
 
-@app.route('/games/<game>/')
-def game_info(game):
+@app.route('/games/<game>/overview.html')
+def game_overview(game):
     return '<em>TODO: Show game info for: %s</em>' % game
 
-@app.route('/games/<game>/play/')
-@app.route('/games/<game>/play/<path:data_path>', methods=['GET', 'POST'])
-def game_player(game, data_path = None):
-    # Reroute to Impact/game or abort if trying to access a file at Impact root
-    if data_path and not os.path.dirname(data_path):
-        abort(404)
-    return handle_impactjs(data_path or 'index.html', game)
-
-@app.route('/games/<game>/edit/')
-@app.route('/games/<game>/edit/<path:data_path>', methods=['GET', 'POST'])
-def game_editor(game, data_path = None):
-    # Reroute to Impact/game or abort if trying to access a file at Impact root
-    if data_path and not os.path.dirname(data_path):
-        abort(404)
-    return handle_impactjs(data_path or 'weltmeister.html', game)
-
-@app.route('/impact/')
-@app.route('/impact/<path:impact_url>', methods=['GET', 'POST'])
-def handle_impactjs(impact_url = 'index.html', game = None):
-    # Abort if there's no file to be retrieved
-    if not os.path.basename(impact_url):
+@app.route('/games/<game>/')
+@app.route('/games/<game>/<path:subpath>', methods=['GET', 'POST'])
+def game_handler(game, subpath = 'index.html'):
+    # Get the local game directory and verify it exists
+    game_dir = os.path.join(GAMES_DIR, game) if game else IMPACT_DIR
+    if not os.path.exists(game_dir):
         abort(404)
     
+    # Normalize the remote path and abort if it is invalid
+    subpath = norm_path(subpath)
+    if subpath is None:
+        abort(404)
+    
+    # TODO: Make the remote path routing happen as a separate layer, callable by the API
+    
     # Override the API
-    if impact_url.startswith(IMPACT_API_URL):
-        method = impact_url[len(IMPACT_API_URL):]
-        def norm_url(url):
-            if url.startswith('//'):
-                abort(404)
-            return url[1:] if url.startswith('/') else url
-        def reroute_url(url):
-            return url[len(IMPACT_GAME_URL):] if game and url.startswith(IMPACT_GAME_URL) else url
-        def get_path(url, rerouted = True):
-            return os.path.normpath(os.path.join(GAMES_DIR if game and rerouted else IMPACT_DIR, url)).replace('..', '')
-        current_game_dir = os.path.join(GAMES_DIR, game) if game else IMPACT_DIR
+    if subpath.startswith(IMPACT_API_URL):
+        method = subpath[len(IMPACT_API_URL):]
         if method == 'glob.php':
             # TODO: Handle arrays of 'glob' URL arguments
-            pattern = reroute_url(norm_url(request.args.get('glob[]', '')))
-            path = get_path(pattern)
+            pattern = norm_path(request.args.get('glob[]', ''))
+            pattern_dir = os.path.dirname(pattern)
             print; print 'glob(%s) ->' % repr(str(pattern))
-            # TODO: Really need to join with 'lib' here?
-            files = [f[len(os.path.join(IMPACT_DIR, 'lib') + os.sep):] for f in glob.glob(path)]
+            local_path = os.path.join(game_dir, os.path.normpath(pattern))
+            files = [(pattern_dir + '/' + os.path.basename(f)) for f in glob.glob(local_path)]
             print '  ' + '\n  '.join(files) if len(files) > 0 else '  None'
             return json.dumps(files)
         elif method == 'browse.php':
-            directory = norm_url(request.args.get('dir', ''))
+            # TODO: Fix this
+            directory = norm_path(request.args.get('dir', ''))
             types = request.args.get('type')
-            print; print 'browse(%s, %s) ->' % (repr(str(directory)), repr(str(types)))
             parent = os.path.dirname(directory) if directory else False
-            path = os.path.normpath(os.path.join(current_game_dir, directory)).replace('..', '')
             exts = SUPPORTED_EXTENSIONS.get(types) or ['*.*']
+            print; print 'browse(%s, %s) ->' % (repr(str(directory)), repr(str(types)))
+            local_path = os.path.join(game_dir, os.path.normpath(directory))
             # Get the directories and files of the provided path, removing the base of the path (which leaves only the relative URL)
-            dirs = [(directory + '/' + dirname) for dirname in os.listdir(path) if os.path.isdir(os.path.join(path, dirname))]
+            dirs = [(directory + '/' + dirname) for dirname in os.listdir(local_path) if os.path.isdir(os.path.join(local_path, dirname))]
             files = []
             for ext in exts:
-                files += [filename[len(current_game_dir):] for filename in glob.glob(os.path.join(path, ext))]
-            print '  ' + '\n  '.join(files) if len(files) > 0 else '  None'
+                files += [os.path.basename(filename) for filename in glob.glob(os.path.join(local_path, ext))]
+            items = dirs + files
+            print '  ' + '\n  '.join(items) if len(items) > 0 else '  None'
             return json.dumps({'dirs': dirs, 'files': files, 'parent': parent})
         elif method == 'save.php' and request.method == 'POST':
-            path = request.form.get('path', '').replace('..', '').replace('\\', '/')
+            path = norm_path(request.form.get('path', ''))
             data = request.form.get('data')
             if not path or not data:
                 print '*** Save error: No data or path specified.'
@@ -129,24 +109,46 @@ def handle_impactjs(impact_url = 'index.html', game = None):
         else:
             abort(404)
     
-    # Reroute path, if current game exists, and use the local impact path otherwise
-    if game and impact_url.startswith(IMPACT_GAME_URL):
-        local_path = os.path.normpath(os.path.join(GAMES_DIR, game, impact_url[len(IMPACT_GAME_URL):]))
-    elif game and impact_url.startswith(IMPACT_MEDIA_PATH):
-        local_path = os.path.normpath(os.path.join(GAMES_DIR, game, impact_url))
-    else:
-        local_path = os.path.normpath(os.path.join(IMPACT_DIR, impact_url))
-    
-    # Abort if no impact file exists
-    if not os.path.exists(local_path):
+    # Get and send the specified local file
+    local_path = get_local_path(subpath, game)
+    if local_path is None:
         abort(404)
-    
-    # Return the local file
     return send_file(local_path)
+
+@app.route('/newgame', methods = ['GET', 'POST'])
+def new_game():
+    # Allow the user to create a new game
+    return '<em>TODO: Create a new game.</em>'
 
 @app.errorhandler(404)
 def page_not_found(error):
     return render_template('error404.html'), 404
+
+# Helper functions
+def norm_path(remote_path):
+    """Normalizes the specified remote path or return None if it is invalid."""
+    remote_path = remote_path[1:] if remote_path.startswith('/') else remote_path
+    if remote_path.endswith('/'):
+        remote_path = remote_path[:-2]
+    if remote_path.startswith('..') or os.path.isabs(remote_path):
+        return None
+    return remote_path
+    
+def get_local_path(remote_path, current_game = None):
+    """Returns the local current game file if it exists, or the local impact file otherwise (or none if it does not exist)."""
+    # Get the os-normalized path
+    remote_path = os.path.normpath(remote_path)
+    # Get the local game file and return it if it exists
+    if current_game:
+        local_game_path = os.path.join(GAMES_DIR, current_game, remote_path)
+        if os.path.exists(local_game_path):
+            return local_game_path
+    # Get the local impact file and return it if it exists
+    local_impact_path = os.path.join(IMPACT_DIR, remote_path)
+    if os.path.exists(local_impact_path):
+        return local_impact_path
+    # Return None since no local file exists
+    return None
 
 # Run dev server
 if __name__ == '__main__':

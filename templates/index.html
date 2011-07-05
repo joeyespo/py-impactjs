@@ -9,8 +9,8 @@
     <ul>
         {% for game in games %}
         <li>
-            <a href="/games/{{ game }}">{{ game|title|replace('_', ' ')|trim }}</a>
-            <span class="actions">(<a href="/games/{{ game }}/edit" target="_blank">Edit</a> | <a href="/games/{{ game }}/play" target="_blank">Play</a>)
+            <a href="/games/{{ game }}/overview.html">{{ game|title|replace('_', ' ')|trim }}</a>
+            <span class="actions">(<a href="/games/{{ game }}/weltmeister.html" target="_blank">Edit</a> | <a href="/games/{{ game }}/index.html" target="_blank">Play</a>)
         </li>
         {% endfor %}
     </ul>
