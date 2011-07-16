@@ -12,6 +12,7 @@ import os, glob, codecs, json
 from flask import Flask, abort, url_for, request, render_template, send_file, redirect
 
 # Constants
+VERBOSE = False
 SUPPORTED_EXTENSIONS = {'images': ['*.png', '*.gif', '*.jpg', '*.jpeg'], 'scripts': ['*.js']}
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 GAMES_DIR = os.path.normpath(os.path.join(ROOT_DIR, 'games'))
@@ -40,6 +41,8 @@ def game_overview(game):
 @app.route('/games/<game>/')
 @app.route('/games/<game>/<page>')
 def play_game(game, page = 'index.html'):
+    if page in ['index.html', 'weltmeister.html'] and not is_impact_installed():
+        return render_template('impact-not-installed.html')
     return send_impact_file(page)
 
 @app.route('/games/<game>/tools/<path:subpath>')
@@ -63,10 +66,10 @@ def glob_api_override(game):
     # TODO: Handle arrays of 'glob' URL arguments
     pattern = norm_path(request.args.get('glob[]', ''))
     pattern_dir = os.path.dirname(pattern) + '/'
-    print; print 'glob(%s) ->' % repr(str(pattern))
+    if VERBOSE: print; print 'glob(%s) ->' % repr(str(pattern))
     local_path = os.path.join(GAMES_DIR, game, os.path.normpath(pattern))
     files = [(pattern_dir + os.path.basename(f)) for f in glob.glob(local_path)]
-    print '  ' + '\n  '.join(files) if len(files) > 0 else '  None'
+    if VERBOSE: print '  ' + '\n  '.join(files) if len(files) > 0 else '  None'
     return json.dumps(files)
 
 @app.route('/games/<game>/lib/weltmeister/api/browse.php')
@@ -75,7 +78,7 @@ def browse_api_override(game):
     types = request.args.get('type')
     parent = os.path.dirname(directory) if directory else False
     exts = SUPPORTED_EXTENSIONS.get(types) or ['*.*']
-    print; print 'browse(%s, %s) ->' % (repr(str(directory)), repr(str(types)))
+    if VERBOSE: print; print 'browse(%s, %s) ->' % (repr(str(directory)), repr(str(types)))
     local_path = os.path.join(GAMES_DIR, game, os.path.normpath(directory))
     directory += '/' if directory else ''
     # Get the directories and files of the provided path, removing the base of the path (which leaves only the relative URL)
@@ -84,19 +87,19 @@ def browse_api_override(game):
     for ext in exts:
         files += [directory + os.path.basename(filename) for filename in glob.glob(os.path.join(local_path, ext))]
     items = dirs + files
-    print '  ' + '\n  '.join(items) if len(items) > 0 else '  None'
+    if VERBOSE: print '  ' + '\n  '.join(items) if len(items) > 0 else '  None'
     return json.dumps({'dirs': dirs, 'files': files, 'parent': parent})
 
 @app.route('/games/<game>/lib/weltmeister/api/save.php', methods=['POST'])
 def save_api_override(game):
     path = norm_path(request.form.get('path', ''))
     data = request.form.get('data')
-    print; print 'saving(%s) ->' % path
+    if VERBOSE: print; print 'saving(%s) ->' % path
     if not path or not data:
-        print '*** Save error: No data or path specified.'
+        if VERBOSE: print '*** Save error: No data or path specified.'
         return json.dumps({'error': '1', 'msg': 'No Data or Path specified'})
     elif not path.endswith('.js'):
-        print '*** Save error: File must have a .js extension.'
+        if VERBOSE: print '*** Save error: File must have a .js extension.'
         return json.dumps({'error': '3', 'msg': 'File must have a .js suffix'})
     local_path = os.path.join(GAMES_DIR, game, path)
     # Write to file
@@ -105,7 +108,7 @@ def save_api_override(game):
             f.write(data)
         return json.dumps({'error': 0})
     except:
-        print '*** Save error: Could not write to file.'
+        if VERBOSE: print '*** Save error: Could not write to file.'
         return json.dumps({'error': '2', 'msg': "Couldn't write to file: " + path})
 
 @app.route('/newgame', methods = ['GET', 'POST'])
@@ -125,30 +128,23 @@ def norm_path(remote_path):
     if remote_path.startswith('..') or os.path.isabs(remote_path):
         return None
     return remote_path
-    
-def get_local_path(remote_path, current_game = None):
-    """Returns the local current game file if it exists, or the local impact file otherwise (or none if it does not exist)."""
-    # Get the os-normalized path
-    remote_path = os.path.normpath(remote_path)
-    # Get the local game file and return it if it exists
-    if current_game:
-        local_game_path = os.path.join(GAMES_DIR, current_game, remote_path)
-        if os.path.exists(local_game_path):
-            return local_game_path
-    # Get the local impact file and return it if it exists
-    local_impact_path = os.path.join(IMPACT_DIR, remote_path)
-    if os.path.exists(local_impact_path):
-        return local_impact_path
-    # Return None since no local file exists
-    return None
+
+def is_impact_installed():
+    return os.path.exists(os.path.join(IMPACT_DIR, 'index.html')) and os.path.exists(os.path.join(IMPACT_DIR, 'weltmeister.html'))
 
 def send_impact_file(*pathparts):
     """Sends a file by joining the specified path parts from the impact directory."""
-    return send_file(os.path.join(IMPACT_DIR, *pathparts))
+    filename = os.path.join(IMPACT_DIR, *pathparts)
+    if not os.path.exists(filename):
+        abort(404)
+    return send_file(filename)
 
 def send_game_file(game, *pathparts):
     """Sends a file by joining the specified path parts from the current game directory."""
-    return send_file(os.path.join(GAMES_DIR, game, *pathparts))
+    filename = os.path.join(GAMES_DIR, game, *pathparts)
+    if not os.path.exists(filename):
+        abort(404)
+    return send_file(filename)
 
 # Run dev server
 if __name__ == '__main__':

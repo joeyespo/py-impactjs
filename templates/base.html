@@ -59,6 +59,15 @@
             right: 0;
         }
         
+        footer a {
+            color: #555;
+            text-decoration: underline;
+        }
+        footer a:hover, footer a:active {
+            color: #999;
+            text-decoration: underline;
+        }
+        
         #content {
             background-color: #eee;
             color: #333;
@@ -93,7 +102,7 @@
             {% block content %}{% endblock %}
             
             <footer>
-                {% block footer %}Python backend by Joe Esposito.{% endblock %}
+                {% block footer %}Python backend by <a href="http://joeyespo.com" target="_blank">Joe Esposito</a>.{% endblock %}
             </section>
         </article>
     </section>
