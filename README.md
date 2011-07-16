@@ -4,7 +4,8 @@ Py-Impactjs
 Implements a back-end server in Python for impactjs. This server also manages
 your games without any external dependencies or additional file manipulation.
 
-This allows you to:
+What this gives you
+-------------------
 
 * Work on multiple games without moving any directories around
 * Add your games to source control without the risk of accidentally checking in the Impact lib (this works because you copy Impact into the 'impact' directory, while your games are located in the 'games' directory; the project wires it all together)
