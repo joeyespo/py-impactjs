@@ -15,3 +15,5 @@ games/
                     mylevel.js
                 main.js
     README
+
+Add as many games as you like to this directory, the server will find them.
