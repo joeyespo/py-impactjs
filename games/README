@@ -1,1 +1,17 @@
 Add your games to this directory. These will NOT be tracked by version control.
+Make your game directory look like Impact's, but without the Impact code.
+
+For example:
+games/
+    mygame/
+        media/
+            player.png
+            tiles.png
+        lib/
+            game/
+                entities/
+                    player.js
+                levels/
+                    mylevel.js
+                main.js
+    README
