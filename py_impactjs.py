@@ -43,23 +43,41 @@ def game_overview(game):
 def play_game(game, page = 'index.html'):
     if page in ['index.html', 'weltmeister.html'] and not is_impact_installed():
         return render_template('impact-not-installed.html')
-    return send_impact_file(page)
+    try:
+        return send_game_file(game,page)
+    except IOError as e:
+        try:
+            return send_impact_file(page)
+        except IOError:
+            abort(404)
 
 @app.route('/games/<game>/tools/<path:subpath>')
 def get_tool(game, subpath):
-    return send_impact_file('tools', subpath)
+    try:
+        return send_impact_file('tools', subpath)
+    except IOError:
+        abort(404)
 
 @app.route('/games/<game>/media/<path:subpath>')
 def get_media(game, subpath):
-    return send_game_file(game, 'media', subpath)
+    try:
+        return send_game_file(game, 'media', subpath)
+    except IOError:
+        abort(404)
 
 @app.route('/games/<game>/lib/<path:subpath>')
 def get_impact_file(game, subpath):
-    return send_impact_file('lib', subpath)
+    try:
+        return send_impact_file('lib', subpath)
+    except IOError:
+        abort(404)
 
 @app.route('/games/<game>/lib/game/<path:subpath>')
 def get_game_file(game, subpath):
-    return send_game_file(game, 'lib', 'game', subpath)
+    try:
+        return send_game_file(game, 'lib', 'game', subpath)
+    except IOError:
+        abort(404)
 
 @app.route('/games/<game>/lib/weltmeister/api/glob.php')
 def glob_api_override(game):
@@ -136,14 +154,14 @@ def send_impact_file(*pathparts):
     """Sends a file by joining the specified path parts from the impact directory."""
     filename = os.path.join(IMPACT_DIR, *pathparts)
     if not os.path.exists(filename):
-        abort(404)
+        raise IOError(5,'No impact file %s' % filename,filename)
     return send_file(filename)
 
 def send_game_file(game, *pathparts):
     """Sends a file by joining the specified path parts from the current game directory."""
     filename = os.path.join(GAMES_DIR, game, *pathparts)
     if not os.path.exists(filename):
-        abort(404)
+        raise IOError(5,'No game file %s' % filename,filename)
     return send_file(filename)
 
 # Run dev server
