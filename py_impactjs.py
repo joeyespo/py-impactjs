@@ -53,19 +53,31 @@ def play_game(game, page = 'index.html'):
 
 @app.route('/games/<game>/tools/<path:subpath>')
 def get_tool(game, subpath):
-    return send_impact_file('tools', subpath)
+    try:
+        return send_impact_file('tools', subpath)
+    except IOError:
+        abort(404)
 
 @app.route('/games/<game>/media/<path:subpath>')
 def get_media(game, subpath):
-    return send_game_file(game, 'media', subpath)
+    try:
+        return send_game_file(game, 'media', subpath)
+    except IOError:
+        abort(404)
 
 @app.route('/games/<game>/lib/<path:subpath>')
 def get_impact_file(game, subpath):
-    return send_impact_file('lib', subpath)
+    try:
+        return send_impact_file('lib', subpath)
+    except IOError:
+        abort(404)
 
 @app.route('/games/<game>/lib/game/<path:subpath>')
 def get_game_file(game, subpath):
-    return send_game_file(game, 'lib', 'game', subpath)
+    try:
+        return send_game_file(game, 'lib', 'game', subpath)
+    except IOError:
+        abort(404)
 
 @app.route('/games/<game>/lib/weltmeister/api/glob.php')
 def glob_api_override(game):
